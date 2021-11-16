@@ -43,7 +43,7 @@ oldM3u8Data:data.body//旧的m3u8文件
 
 url   string m3u8网络地址
      
-pathTarget string 下载存储目录
+pathTarget string 下载存储目录,调用结束后目录文件夹下会生成input.txt(用于ts文件合并),相对路径的index.m3u8
 
 progress   function 下载过程中处理下载数据
 
@@ -94,7 +94,7 @@ m3u8Utils.m3u8Convert('D:\\m3u81\\input.txt','d:\\m3u81/ss1.mp4').then(destPath=
 });
 ```
 
-###一个综合的例子
+### 一个综合的例子
 
 ```javascript
 let m3u8Utils = require('m3u8utils')
