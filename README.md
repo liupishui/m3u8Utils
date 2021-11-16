@@ -5,7 +5,7 @@
 ### 安装
 
 ```
-    npm install m3u8Utils
+    npm install m3u8utils
 ```
 
 ### 使用
