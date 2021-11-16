@@ -1,21 +1,21 @@
-#m3u8Utils
+# m3u8Utils
 
 实现m3u8视频源的下载和合并，支持aes-128-cbc简单加密的ts文件自动解密下载和手动配置加密方法，key，iv。方便对接电影资源站，进行批量下载。
 
-###安装
+### 安装
 
 ```
     npm install m3u8Utils
 ```
 
-###使用
+### 使用
 ```
     let m3u8Utils = require('m3u8utils');
 ```
 
-###工具有三个接口
+### 工具有三个接口
 
-######1.parseM3u8
+###### 1.parseM3u8
 
 参数：
 
@@ -37,7 +37,7 @@ oldM3u8Data:data.body//旧的m3u8文件
         console.log(data);
     })
 ```
-######2.downloadM3u8
+###### 2.downloadM3u8
 
 参数：
 
@@ -77,7 +77,7 @@ m3u8Utils.downloadM3u8('https://v4.cdtlas.com/20211113/20urU8bN/index.m3u8', 'D:
     // }
 })
 ```
-######3.m3u8convert
+###### 3.m3u8convert
 
 使用ffmpeg将ts片段合并成.mp4文件
 
