@@ -10,7 +10,7 @@
 
 ###使用
 ```
-    let m3u8Utils = require('m3u8Utils');
+    let m3u8Utils = require('m3u8utils');
 ```
 
 ###工具有三个接口
@@ -32,7 +32,7 @@ oldM3u8Data:data.body//旧的m3u8文件
 例子：
 
 ```javascript
-    let m3u8Utils = require('m3u8Utils');
+    let m3u8Utils = require('m3u8utils');
     m3u8Utils.parseM3u8('https://v4.cdtlas.com/20211113/20urU8bN/index.m3u8').then((data)=>{
         console.log(data);
     })
@@ -50,7 +50,7 @@ progress   function 下载过程中处理下载数据
 例子：
 
 ```javascript
-let m3u8Utils = require('m3u8Utils');
+let m3u8Utils = require('m3u8utils');
 let log = require('single-line-log').stdout;
 let downloadNum = 0;
 m3u8Utils.downloadM3u8('https://v4.cdtlas.com/20211113/20urU8bN/index.m3u8', 'D:\\m3u81', 
@@ -88,7 +88,7 @@ inputFilePath 存放所有ts文件位置的input.txt文件或者文件夹
 targetFilePath 合并后的mp4要存放到的完整路径
 
 ```javascript
-let m3u8Utils = require('m3u8Utils');
+let m3u8Utils = require('m3u8utils');
 m3u8Utils.m3u8Convert('D:\\m3u81\\input.txt','d:\\m3u81/ss1.mp4').then(destPath=>{
     console.log(destPath)
 });
@@ -97,7 +97,7 @@ m3u8Utils.m3u8Convert('D:\\m3u81\\input.txt','d:\\m3u81/ss1.mp4').then(destPath=
 ###一个综合的例子
 
 ```javascript
-let m3u8Utils = require('m3u8Utils')
+let m3u8Utils = require('m3u8utils')
 let log = require('single-line-log').stdout;
 let downloadNum = 0;
 m3u8Utils.downloadM3u8('https://v4.cdtlas.com/20211113/20urU8bN/index.m3u8', 'D:\\m3u82', function (mediaData, TsInfo, pathTarget, segmentsOrder, parseM3u8RstSegmentsOrg, TsInfoKeyMethod, cryptoKey, cryptoIv) {
