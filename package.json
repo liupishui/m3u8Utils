@@ -1,6 +1,6 @@
 {
   "name": "m3u8utils",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "m3u8视频下载合并",
   "main": "app/utils/m3u8/index.js",
   "scripts": {
