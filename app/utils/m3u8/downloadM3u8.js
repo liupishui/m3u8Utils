@@ -25,41 +25,50 @@ async function downloadTs(TsInfo, pathTarget, process, segmentsOrder, parseM3u8R
     }
     if (TsInfo.key) {
         if (TsInfo.key.method) {
-            if (typeof (cryptoKey['TsInfo.key.uri']) === 'undefined') {
-                // fetch('https://vo1.123188kk.com/20211103/kiRfauFR/hls/key.key',{ method:'get', responseType:'arraybuffer'}).then(res=>{
-                //     console.log('%O',res);
-                //     return res.arrayBuffer()
-                // }).then(data=>{new Uint8Array(data)})
-                let keyDataGet = await got({ url: TsInfo.key.uri });
-                //console.log(keyDataGet);
-                cryptoKey[TsInfo.key.uri] = new Uint8Array(Buffer.from(keyDataGet.body.replace(/\s+/, '')));
-                //console.log(Buffer.from(cryptoKey[TsInfo.key.uri],'utf-8'));
-            }
-            let tsData = await got(TsInfo.uri);
-            // https://github.com/video-dev/hls.js/blob/b34e8b82daa3c26efd009f1e5af085c34ea0a678/src/loader/fragment.ts#L220
-            //console.log(cryptoKey[TsInfo.key.uri]);
-            let cryptoIv = TsInfo.key.iv ? new Uint8Array(Buffer.from(TsInfo.key.iv)) : getiv(segmentsOrder - 1);
-            var processRst = process(tsData.rawBody, TsInfo, pathTarget, segmentsOrder, parseM3u8RstSegmentsOrg, TsInfo.key.method, cryptoKey[TsInfo.key.uri], cryptoIv);
-            if (processRst.cryptoIv) {
-                cryptoIv = processRst.cryptoIv;
-            };
-            if (processRst.cryptoKey) {
-                cryptoKey[TsInfo.key.uri] = processRst.cryptoKey;
-            }
-            if (processRst.cryptoMethod) {
-                TsInfo.key.method = processRst.cryptoMethod;
-            }
-            if (processRst.isDecrypto){//如果已经解密直接写入
-                fs.writeFileSync(pathTargetFull, processRst.data);
-            }else{
-                let decipher = crypto.createDecipheriv((TsInfo.key.method + '-cbc').toLocaleLowerCase(), cryptoKey[TsInfo.key.uri], cryptoIv);
-                decRst = Buffer.concat([decipher.update(Buffer.isBuffer(processRst) ? processRst : processRst.data), decipher.final()]);
-                fs.writeFileSync(pathTargetFull, decRst);
+            try{
+                if (typeof (cryptoKey['TsInfo.key.uri']) === 'undefined') {
+                    // fetch('https://vo1.123188kk.com/20211103/kiRfauFR/hls/key.key',{ method:'get', responseType:'arraybuffer'}).then(res=>{
+                    //     console.log('%O',res);
+                    //     return res.arrayBuffer()
+                    // }).then(data=>{new Uint8Array(data)})
+                    let keyDataGet = await got(TsInfo.key.uri,{timeout:10*1000});
+                    //console.log(keyDataGet);
+                    cryptoKey[TsInfo.key.uri] = new Uint8Array(Buffer.from(keyDataGet.body.replace(/\s+/, '')));
+                    //console.log(Buffer.from(cryptoKey[TsInfo.key.uri],'utf-8'));
+                }
+                let tsData = await got(TsInfo.uri,{timeout:15*1000});
+                // https://github.com/video-dev/hls.js/blob/b34e8b82daa3c26efd009f1e5af085c34ea0a678/src/loader/fragment.ts#L220
+                //console.log(cryptoKey[TsInfo.key.uri]);
+                let cryptoIv = TsInfo.key.iv ? new Uint8Array(Buffer.from(TsInfo.key.iv)) : getiv(segmentsOrder - 1);
+                var processRst = process(tsData.rawBody, TsInfo, pathTarget, segmentsOrder, parseM3u8RstSegmentsOrg, TsInfo.key.method, cryptoKey[TsInfo.key.uri], cryptoIv);
+                if (processRst.cryptoIv) {
+                    cryptoIv = processRst.cryptoIv;
+                };
+                if (processRst.cryptoKey) {
+                    cryptoKey[TsInfo.key.uri] = processRst.cryptoKey;
+                }
+                if (processRst.cryptoMethod) {
+                    TsInfo.key.method = processRst.cryptoMethod;
+                }
+                if (processRst.isDecrypto){//如果已经解密直接写入
+                    fs.writeFileSync(pathTargetFull, processRst.data);
+                }else{
+                    let decipher = crypto.createDecipheriv((TsInfo.key.method + '-cbc').toLocaleLowerCase(), cryptoKey[TsInfo.key.uri], cryptoIv);
+                    decRst = Buffer.concat([decipher.update(Buffer.isBuffer(processRst) ? processRst : processRst.data), decipher.final()]);
+                    fs.writeFileSync(pathTargetFull, decRst);
+                }
+                return true;
+            }catch(e){
+                return true;
             }
         }
     } else {
-        let data = await got(TsInfo.uri)
-        fs.writeFileSync(pathTargetFull, process(data.rawBody, TsInfo, pathTarget, segmentsOrder, parseM3u8RstSegmentsOrg));
+        try{
+            let data = await got(TsInfo.uri,{timeout:10*1000})
+            fs.writeFileSync(pathTargetFull, process(data.rawBody, TsInfo, pathTarget, segmentsOrder, parseM3u8RstSegmentsOrg));
+        }catch(e){
+            return true;
+        }
     }
     return true;
 }
