@@ -89,7 +89,8 @@ async function downloadM3u8(url, pathTarget, progressOrg) {
         inputTxt += 'file ' + pathTarget.replace('\\', '//') + '//' + path.parse(parseM3u8Rst.segments[i].uri).base + '\n';
     }
     fs.writeFileSync(pathTarget + '/input.txt', inputTxt);
-    fs.writeFileSync(pathTarget + '/index.m3u8', parseM3u8Rst.newM3u8Data);
+    fs.writeFileSync(pathTarget + '/index_new.m3u8', parseM3u8Rst.newM3u8Data);
+    fs.writeFileSync(pathTarget + '/index.m3u8', parseM3u8Rst.oldM3u8Data);
     let parseM3u8RstSegmentsOrg = JSON.parse(JSON.stringify(parseM3u8Rst.segments));
     let promiseFunction = function () {
         return new Promise(async (resolve, reject) => {
