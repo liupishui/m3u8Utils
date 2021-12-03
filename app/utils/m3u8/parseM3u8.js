@@ -29,7 +29,7 @@ async function parseM3u8(url) {
             parser.push(dataSource.body);
             parser.end();
         }
-        rst.newM3u8Data = rst.oldM3u8Data.replace(/,\s+.*.ts/igm, function (val) { return ',\n' + path.parse(val).base; });
+        rst.newM3u8Data = rst.oldM3u8Data.replace(/,\s+.*.ts/igm, function (val) { return val.indexOf('http') !== -1 ? (',\n' + path.parse(val).base) : val; });
         rst.newM3u8Data = rst.newM3u8Data.replace(/,\s+.*/igm, function (val) { let rst = val; if (val.indexOf('/') !== -1) { rst = ',\n' + val.substr(val.lastIndexOf('/')) }; return rst; });
         rst.newM3u8Data = rst.newM3u8Data.replace(/#EXT-X-KEY.*\s+#/igm, '#');
         rst.segments = parser.manifest.segments;

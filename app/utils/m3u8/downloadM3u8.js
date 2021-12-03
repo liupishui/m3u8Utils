@@ -59,6 +59,7 @@ async function downloadTs(TsInfo, pathTarget, process, segmentsOrder, parseM3u8R
                 }
                 return true;
             }catch(e){
+                process(false, TsInfo, pathTarget, segmentsOrder, parseM3u8RstSegmentsOrg, TsInfo.key.method, cryptoKey[TsInfo.key.uri], cryptoIv);
                 return true;
             }
         }
@@ -67,6 +68,7 @@ async function downloadTs(TsInfo, pathTarget, process, segmentsOrder, parseM3u8R
             let data = await got(TsInfo.uri,{timeout:10*1000})
             fs.writeFileSync(pathTargetFull, process(data.rawBody, TsInfo, pathTarget, segmentsOrder, parseM3u8RstSegmentsOrg));
         }catch(e){
+            process(false, TsInfo, pathTarget, segmentsOrder, parseM3u8RstSegmentsOrg)
             return true;
         }
     }
