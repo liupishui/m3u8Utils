@@ -3,9 +3,9 @@ let m3u8Parser = require('m3u8-parser');
 let urlParse = require('url');
 let path = require('path');
 let fs = require('fs-extra');
+let URL = require('url');
 async function parseM3u8(url) {
     try {
-        console.log(url);
         let data = '';
         if (url.indexOf('http') !== 0) {
             data = fs.readFileSync(url, 'utf-8');
@@ -28,6 +28,9 @@ async function parseM3u8(url) {
             parser = new m3u8Parser.Parser();
             parser.push(dataSource.body);
             parser.end();
+        }
+        if (url.indexOf('http') !== -1) {
+            rst.oldM3u8Data = rst.oldM3u8Data.replace(/,\s+(.*.ts)/igm, function (val, val1) { return val.indexOf('http') !== -1 ? val : (',\n' + URL.resolve(url, val1)); });
         }
         rst.newM3u8Data = rst.oldM3u8Data.replace(/,\s+.*.ts/igm, function (val) { return val.indexOf('http') !== -1 ? (',\n' + path.parse(val).base) : val; });
         rst.newM3u8Data = rst.newM3u8Data.replace(/,\s+.*/igm, function (val) { let rst = val; if (val.indexOf('/') !== -1) { rst = ',\n' + val.substr(val.lastIndexOf('/')) }; return rst; });

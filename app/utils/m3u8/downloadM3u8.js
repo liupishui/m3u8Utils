@@ -100,7 +100,8 @@ async function downloadM3u8(url, pathTarget, progressOrg) {
             for (let i = 0; i < loopNumber; i++) {
                 if (parseM3u8Rst.segments.length !== 0) {
                     let segmentsOrder = parseM3u8Rst.segments.length;
-                    let rst = await downloadTs(parseM3u8Rst.segments.splice(-1)[0], pathTarget, progress, segmentsOrder, parseM3u8RstSegmentsOrg);
+                    // let rst = await downloadTs(parseM3u8Rst.segments.splice(-1)[0], pathTarget, progress, segmentsOrder, parseM3u8RstSegmentsOrg);
+                    await downloadTs(parseM3u8Rst.segments.splice(-1)[0], pathTarget, progress, segmentsOrder, parseM3u8RstSegmentsOrg);
                 }
             }
             resolve(true);
