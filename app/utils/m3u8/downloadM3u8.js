@@ -20,7 +20,12 @@ function getiv(segmentNumber) {
 async function downloadTs(TsInfo, pathTarget, process, segmentsOrder, parseM3u8RstSegmentsOrg) {
     var pathTargetFull = pathTarget + TsInfo.uri.substr(TsInfo.uri.lastIndexOf('/'));
     if (fs.existsSync(pathTargetFull)) {
-        process(fs.readFileSync(pathTargetFull), TsInfo, pathTarget, segmentsOrder, parseM3u8RstSegmentsOrg);
+        if(fs.readFileSync(pathTargetFull).length===0){
+            fs.unlinkSync(pathTargetFull);
+            process({error:{message:'数据为空',code:'CONTENTEMPTY'}}, TsInfo, pathTarget, segmentsOrder, parseM3u8RstSegmentsOrg);
+        }else{
+            process(fs.readFileSync(pathTargetFull), TsInfo, pathTarget, segmentsOrder, parseM3u8RstSegmentsOrg);
+        }
         return true;
     }
     if (TsInfo.key) {
@@ -31,12 +36,12 @@ async function downloadTs(TsInfo, pathTarget, process, segmentsOrder, parseM3u8R
                     //     console.log('%O',res);
                     //     return res.arrayBuffer()
                     // }).then(data=>{new Uint8Array(data)})
-                    let keyDataGet = await got(TsInfo.key.uri,{timeout:10*1000});
+                    let keyDataGet = await got(TsInfo.key.uri,{timeout:10*1000,retry:3});
                     //console.log(keyDataGet);
                     cryptoKey[TsInfo.key.uri] = new Uint8Array(Buffer.from(keyDataGet.body.replace(/\s+/, '')));
                     //console.log(Buffer.from(cryptoKey[TsInfo.key.uri],'utf-8'));
                 }
-                let tsData = await got(TsInfo.uri,{timeout:15*1000});
+                let tsData = await got(TsInfo.uri,{timeout:3*1000,retry:5});
                 // https://github.com/video-dev/hls.js/blob/b34e8b82daa3c26efd009f1e5af085c34ea0a678/src/loader/fragment.ts#L220
                 //console.log(cryptoKey[TsInfo.key.uri]);
                 let cryptoIv = TsInfo.key.iv ? new Uint8Array(Buffer.from(TsInfo.key.iv)) : getiv(segmentsOrder - 1);
@@ -59,16 +64,16 @@ async function downloadTs(TsInfo, pathTarget, process, segmentsOrder, parseM3u8R
                 }
                 return true;
             }catch(e){
-                process(false, TsInfo, pathTarget, segmentsOrder, parseM3u8RstSegmentsOrg, TsInfo.key.method, cryptoKey[TsInfo.key.uri], cryptoIv);
+                process({error:e}, TsInfo, pathTarget, segmentsOrder, parseM3u8RstSegmentsOrg, TsInfo.key.method, cryptoKey[TsInfo.key.uri], cryptoIv);
                 return true;
             }
         }
     } else {
         try{
-            let data = await got(TsInfo.uri,{timeout:10*1000})
+            let data = await got(TsInfo.uri,{timeout:10*1000,retry:3})
             fs.writeFileSync(pathTargetFull, process(data.rawBody, TsInfo, pathTarget, segmentsOrder, parseM3u8RstSegmentsOrg));
         }catch(e){
-            process(false, TsInfo, pathTarget, segmentsOrder, parseM3u8RstSegmentsOrg)
+            process({error:e}, TsInfo, pathTarget, segmentsOrder, parseM3u8RstSegmentsOrg)
             return true;
         }
     }
@@ -107,7 +112,7 @@ async function downloadM3u8(url, pathTarget, progressOrg) {
             resolve(true);
         })
     }
-    for (let i = 0; i < 500; i++) { //同时下载15个
+    for (let i = 0; i < 15; i++) { //同时下载15个
         promiseFunction();
     }
 }
