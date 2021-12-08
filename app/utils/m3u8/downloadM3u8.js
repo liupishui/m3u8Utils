@@ -64,7 +64,7 @@ async function downloadTs(TsInfo, pathTarget, process, segmentsOrder, parseM3u8R
                 }
                 return true;
             }catch(e){
-                process({error:e}, TsInfo, pathTarget, segmentsOrder, parseM3u8RstSegmentsOrg, TsInfo.key.method, cryptoKey[TsInfo.key.uri], cryptoIv);
+                process({error:e}, TsInfo, pathTarget, segmentsOrder, parseM3u8RstSegmentsOrg, TsInfo.key.method, cryptoKey[TsInfo.key.uri], '');
                 return true;
             }
         }
