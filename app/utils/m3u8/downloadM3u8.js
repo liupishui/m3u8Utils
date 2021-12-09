@@ -45,7 +45,12 @@ async function downloadTs(TsInfo, pathTarget, process, segmentsOrder, parseM3u8R
                 // https://github.com/video-dev/hls.js/blob/b34e8b82daa3c26efd009f1e5af085c34ea0a678/src/loader/fragment.ts#L220
                 //console.log(cryptoKey[TsInfo.key.uri]);
                 let cryptoIv = TsInfo.key.iv ? new Uint8Array(Buffer.from(TsInfo.key.iv)) : getiv(segmentsOrder - 1);
-                var processRst = process(tsData.rawBody, TsInfo, pathTarget, segmentsOrder, parseM3u8RstSegmentsOrg, TsInfo.key.method, cryptoKey[TsInfo.key.uri], cryptoIv);
+                let processRst = '';
+                if (tsData.rawBody===''){
+                    processRst = process({ error: { message: '数据为空', code: 'CONTENTEMPTY' } }, TsInfo, pathTarget, segmentsOrder, parseM3u8RstSegmentsOrg, TsInfo.key.method, cryptoKey[TsInfo.key.uri], cryptoIv);
+                }else{
+                    processRst = process(tsData.rawBody, TsInfo, pathTarget, segmentsOrder, parseM3u8RstSegmentsOrg, TsInfo.key.method, cryptoKey[TsInfo.key.uri], cryptoIv);
+                }
                 if (processRst.cryptoIv) {
                     cryptoIv = processRst.cryptoIv;
                 };
@@ -60,7 +65,9 @@ async function downloadTs(TsInfo, pathTarget, process, segmentsOrder, parseM3u8R
                 }else{
                     let decipher = crypto.createDecipheriv((TsInfo.key.method + '-cbc').toLocaleLowerCase(), cryptoKey[TsInfo.key.uri], cryptoIv);
                     decRst = Buffer.concat([decipher.update(Buffer.isBuffer(processRst) ? processRst : processRst.data), decipher.final()]);
-                    fs.writeFileSync(pathTargetFull, decRst);
+                    if(decRst.length>0){
+                        fs.writeFileSync(pathTargetFull, decRst);
+                    }
                 }
                 return true;
             }catch(e){
@@ -71,7 +78,11 @@ async function downloadTs(TsInfo, pathTarget, process, segmentsOrder, parseM3u8R
     } else {
         try{
             let data = await got(TsInfo.uri,{timeout:10*1000,retry:3})
-            fs.writeFileSync(pathTargetFull, process(data.rawBody, TsInfo, pathTarget, segmentsOrder, parseM3u8RstSegmentsOrg));
+            if(data.rawBody.length>0){
+                fs.writeFileSync(pathTargetFull, process(data.rawBody, TsInfo, pathTarget, segmentsOrder, parseM3u8RstSegmentsOrg));
+            }else{
+                process({ error: { message: '数据为空', code: 'CONTENTEMPTY' } }, TsInfo, pathTarget, segmentsOrder, parseM3u8RstSegmentsOrg)
+            }
         }catch(e){
             process({error:e}, TsInfo, pathTarget, segmentsOrder, parseM3u8RstSegmentsOrg)
             return true;
@@ -99,6 +110,17 @@ async function downloadM3u8(url, pathTarget, progressOrg) {
     fs.writeFileSync(pathTarget + '/index_new.m3u8', parseM3u8Rst.newM3u8Data);
     fs.writeFileSync(pathTarget + '/index.m3u8', parseM3u8Rst.oldM3u8Data);
     let parseM3u8RstSegmentsOrg = JSON.parse(JSON.stringify(parseM3u8Rst.segments));
+    let segmentsPath = fs.readdirSync(pathTarget, { withFileTypes:true });
+    //先将已经下载过的去掉
+    for (let j = parseM3u8Rst.segments.length-1; j>-1; j--){
+        segmentsPath.forEach((val,key)=>{
+            // console.log(j,parseM3u8Rst.segments[j]);
+            if (parseM3u8Rst.segments[j] && parseM3u8Rst.segments[j].uri.indexOf(val.name) !== -1){
+                let TsInfo = parseM3u8Rst.segments.splice(j, 1)[0];
+                progress(true, TsInfo, pathTarget, j, parseM3u8RstSegmentsOrg);
+            }
+        })
+    }
     let promiseFunction = function () {
         return new Promise(async (resolve, reject) => {
             let loopNumber = parseM3u8Rst.segments.length;
