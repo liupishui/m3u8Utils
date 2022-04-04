@@ -41,7 +41,11 @@ async function parseM3u8(url) {
                 val.uri = urlParse.resolve(url, val.uri);
             }
             if (val.key && val.key.uri && val.key.uri.indexOf('http') !== 0) {
-                val.key.uri = urlParse.resolve(url, val.key.uri);
+                if(url.indexOf('http')===0){
+                    val.key.uri = urlParse.resolve(url, val.key.uri);
+                }else{
+                    val.key.uri = urlParse.resolve(val.uri, val.key.uri);
+                }
             }
         });
         return rst;

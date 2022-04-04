@@ -36,6 +36,7 @@ async function downloadTs(TsInfo, pathTarget, process, segmentsOrder, parseM3u8R
                     //     console.log('%O',res);
                     //     return res.arrayBuffer()
                     // }).then(data=>{new Uint8Array(data)})
+                    // console.log(TsInfo.key.uri);
                     let keyDataGet = await got(TsInfo.key.uri,{timeout:10*1000,retry:3});
                     //console.log(keyDataGet);
                     cryptoKey[TsInfo.key.uri] = new Uint8Array(Buffer.from(keyDataGet.body.replace(/\s+/, '')));
@@ -102,7 +103,11 @@ async function downloadM3u8(url, pathTarget, progressOrg) {
         fs.mkdirSync(pathTarget, { recursive: true });
     }
     let parseM3u8Rst = await parseM3u8(url); //获取所有ts片段
+
     let inputTxt = 'ffconcat version 1.0\n';//ffmpeg生成mp4所用文件
+    if(typeof(parseM3u8Rst.segments)=='undefined'){
+        return;
+    };
     for (let i = 0; i < parseM3u8Rst.segments.length; i++) {
         inputTxt += 'file ' + pathTarget.replace('\\', '//') + '//' + path.parse(parseM3u8Rst.segments[i].uri).base + '\n';
     }
@@ -121,21 +126,42 @@ async function downloadM3u8(url, pathTarget, progressOrg) {
             }
         })
     }
-    let promiseFunction = function () {
-        return new Promise(async (resolve, reject) => {
-            let loopNumber = parseM3u8Rst.segments.length;
-            for (let i = 0; i < loopNumber; i++) {
-                if (parseM3u8Rst.segments.length !== 0) {
-                    let segmentsOrder = parseM3u8Rst.segments.length;
-                    // let rst = await downloadTs(parseM3u8Rst.segments.splice(-1)[0], pathTarget, progress, segmentsOrder, parseM3u8RstSegmentsOrg);
-                    await downloadTs(parseM3u8Rst.segments.splice(-1)[0], pathTarget, progress, segmentsOrder, parseM3u8RstSegmentsOrg);
+    for(let i=0;i<Math.ceil(parseM3u8Rst.segments.length/100);i++){
+        let PromiseArr = [];
+        for(let j=0;j<100;j++){
+            PromiseArr.push(new Promise(async (resolve,reject)=>{
+                if(parseM3u8Rst.segments[i*100+j]){
+                    let Err = null;
+                    try{
+                        await downloadTs(parseM3u8Rst.segments[i*100+j], pathTarget, progress, i*100+j, parseM3u8RstSegmentsOrg);
+                    }catch(e){
+                        Err = e;
+                    }
+                    if(Err){
+                        reject(Err);
+                    }else{
+                        resolve(true);
+                    }
                 }
-            }
-            resolve(true);
-        })
+            }));
+        }
+        await Promise.all(PromiseArr);
     }
-    for (let i = 0; i < 15; i++) { //同时下载15个
-        promiseFunction();
-    }
+    // let promiseFunction = function () {
+    //     return new Promise(async (resolve, reject) => {
+    //         let loopNumber = parseM3u8Rst.segments.length;
+    //         for (let i = 0; i < loopNumber; i++) {
+    //             if (parseM3u8Rst.segments.length !== 0) {
+    //                 let segmentsOrder = parseM3u8Rst.segments.length;
+    //                 // let rst = await downloadTs(parseM3u8Rst.segments.splice(-1)[0], pathTarget, progress, segmentsOrder, parseM3u8RstSegmentsOrg);
+    //                 await downloadTs(parseM3u8Rst.segments.splice(-1)[0], pathTarget, progress, segmentsOrder, parseM3u8RstSegmentsOrg);
+    //             }
+    //         }
+    //         resolve(true);
+    //     })
+    // }
+    // for (let i = 0; i < 15; i++) { //同时下载15个
+    //     promiseFunction();
+    // }
 }
 module.exports = downloadM3u8;
