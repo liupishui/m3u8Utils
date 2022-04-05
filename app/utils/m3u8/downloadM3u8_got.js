@@ -1,12 +1,11 @@
 //下载输入m3u8网络地址，和存储位置；下载对应.m3u8文件和.ts文件到指定文件夹内，同时在指定文件夹内生成input.txt文件用于使用ffmpeg.exe工具.ts文件合并生成.mp4文件
-let parseM3u8 = require('./parseM3u8');
+let parseM3u8 = require('m3u8utils/app/utils/m3u8/parseM3u8');
 let got = require('got');
 let fs = require('fs');
 let path = require('path');
 let urlParse = require('url');
 let crypto = require('crypto');
 const { resolve } = require('path');
-let undiciRequest = require('./undiciRequest.js');
 let cryptoKey = {};
 //http://www.flashme.cn/index.php/web/50.html
 function getiv(segmentNumber) {
@@ -38,23 +37,20 @@ async function downloadTs(TsInfo, pathTarget, process, segmentsOrder, parseM3u8R
                     //     return res.arrayBuffer()
                     // }).then(data=>{new Uint8Array(data)})
                     // console.log(TsInfo.key.uri);
-                    let keyDataGet = await undiciRequest(TsInfo.key.uri);
-                    if(keyDataGet && keyDataGet.data){
-                        keyDataGet = keyDataGet.data.toString();
-                    }
+                    let keyDataGet = await got(TsInfo.key.uri,{timeout:10*1000,retry:2});
                     //console.log(keyDataGet);
                     cryptoKey[TsInfo.key.uri] = new Uint8Array(Buffer.from(keyDataGet.body.replace(/\s+/, '')));
                     //console.log(Buffer.from(cryptoKey[TsInfo.key.uri],'utf-8'));
                 }
-                let res = await undiciRequest(TsInfo.uri);
+                let tsData = await got(TsInfo.uri,{timeout:10*1000,retry:2});
                 // https://github.com/video-dev/hls.js/blob/b34e8b82daa3c26efd009f1e5af085c34ea0a678/src/loader/fragment.ts#L220
                 //console.log(cryptoKey[TsInfo.key.uri]);
                 let cryptoIv = TsInfo.key.iv ? new Uint8Array(Buffer.from(TsInfo.key.iv)) : getiv(segmentsOrder - 1);
                 let processRst = '';
-                if (res && res.data && res.data.length>0){
-                    processRst = process(res.data, TsInfo, pathTarget, segmentsOrder, parseM3u8RstSegmentsOrg, TsInfo.key.method, cryptoKey[TsInfo.key.uri], cryptoIv);
-                }else{
+                if (tsData.rawBody===''){
                     processRst = process({ error: { message: '数据为空', code: 'CONTENTEMPTY' } }, TsInfo, pathTarget, segmentsOrder, parseM3u8RstSegmentsOrg, TsInfo.key.method, cryptoKey[TsInfo.key.uri], cryptoIv);
+                }else{
+                    processRst = process(tsData.rawBody, TsInfo, pathTarget, segmentsOrder, parseM3u8RstSegmentsOrg, TsInfo.key.method, cryptoKey[TsInfo.key.uri], cryptoIv);
                 }
                 if (processRst.cryptoIv) {
                     cryptoIv = processRst.cryptoIv;
@@ -82,9 +78,9 @@ async function downloadTs(TsInfo, pathTarget, process, segmentsOrder, parseM3u8R
         }
     } else {
         try{
-            let res = await undiciRequest(TsInfo.uri);
-            if(res && res.data && res.data.length>0){
-                fs.writeFileSync(pathTargetFull, process(res.data, TsInfo, pathTarget, segmentsOrder, parseM3u8RstSegmentsOrg));
+            let data = await got(TsInfo.uri,{timeout:10*1000,retry:2});
+            if(data.rawBody.length>0){
+                fs.writeFileSync(pathTargetFull, process(data.rawBody, TsInfo, pathTarget, segmentsOrder, parseM3u8RstSegmentsOrg));
             }else{
                 process({ error: { message: '数据为空', code: 'CONTENTEMPTY' } }, TsInfo, pathTarget, segmentsOrder, parseM3u8RstSegmentsOrg)
             }
@@ -130,7 +126,7 @@ async function downloadM3u8(url, pathTarget, progressOrg) {
             }
         })
     }
-    let downloadTsStep = 20;//每X个Ts文件一组下载
+    let downloadTsStep = 20;
     for(let i=0;i<Math.ceil(parseM3u8Rst.segments.length/downloadTsStep);i++){
         let PromiseArr = [];
         for(let j=0;j<downloadTsStep;j++){

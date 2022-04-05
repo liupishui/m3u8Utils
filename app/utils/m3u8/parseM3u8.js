@@ -4,14 +4,25 @@ let urlParse = require('url');
 let path = require('path');
 let fs = require('fs-extra');
 let URL = require('url');
+let undiciRequest = require('./undiciRequest.js');
 async function parseM3u8(url) {
     try {
         let data = '';
         if (url.indexOf('http') !== 0) {
             data = fs.readFileSync(url, 'utf-8');
         } else {
-            let dataHtpp = await got(url, { timeout: 10 * 1000 });
-            data = dataHtpp.body;
+
+            try{
+                let res = await undiciRequest(url);
+                if(res){
+                    url = res.url;
+                    data = res.data.toString();
+                }else{
+                    return false;
+                }
+            }catch(e){
+                return false;
+            }
         }
         let parser = new m3u8Parser.Parser();
         parser.push(data);
