@@ -1,12 +1,12 @@
 //下载输入m3u8网络地址，和存储位置；下载对应.m3u8文件和.ts文件到指定文件夹内，同时在指定文件夹内生成input.txt文件用于使用ffmpeg.exe工具.ts文件合并生成.mp4文件
-let parseM3u8 = require('./parseM3u8');
+let parseM3u8 = require('m3u8utils/app/utils/m3u8/parseM3u8');
 let got = require('got');
 let fs = require('fs');
 let path = require('path');
 let urlParse = require('url');
 let crypto = require('crypto');
 const { resolve } = require('path');
-let undiciRequest = require('./undiciRequest.js');
+let undiciRequest = require('m3u8utils/app/utils/m3u8/undiciRequest');
 let cryptoKey = {};
 //http://www.flashme.cn/index.php/web/50.html
 function getiv(segmentNumber) {
@@ -77,7 +77,7 @@ async function downloadTs(TsInfo, pathTarget, process, segmentsOrder, parseM3u8R
                 return true;
             }catch(e){
                 process({error:e}, TsInfo, pathTarget, segmentsOrder, parseM3u8RstSegmentsOrg, TsInfo.key.method, cryptoKey[TsInfo.key.uri], '');
-                return true;
+                return Promise.reject(e);
             }
         }
     } else {
@@ -90,7 +90,7 @@ async function downloadTs(TsInfo, pathTarget, process, segmentsOrder, parseM3u8R
             }
         }catch(e){
             process({error:e}, TsInfo, pathTarget, segmentsOrder, parseM3u8RstSegmentsOrg)
-            return true;
+            return Promise.reject(e);
         }
     }
     return true;
@@ -150,7 +150,14 @@ async function downloadM3u8(url, pathTarget, progressOrg) {
                 }
             }));
         }
-        await Promise.all(PromiseArr);
+        try{
+            await Promise.all(PromiseArr);
+        }catch(e){
+            // if(e.statusCode&&e.statusCode!=200){
+            //     //如果是http状态码错误(如果424，500，等等),则不继续执行
+            //     return;
+            // }
+        }
     }
     // let promiseFunction = function () {
     //     return new Promise(async (resolve, reject) => {
