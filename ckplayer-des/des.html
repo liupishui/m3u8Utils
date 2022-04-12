@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+
+	<head>
+		<meta charset="UTF-8">
+		<title>des</title>
+		<script type="text/javascript" src="cryptojs/rollups/tripledes.js"></script>
+		<script type="text/javascript" src="cryptojs/components/mode-ecb-min.js"></script>
+	</head>
+
+	<body>
+		<script type="text/javascript">
+			document.write(textDes('abcabcabdagcfdcb'));
+			document.write('<br>'+desDecrypt('s4HMPbmUfZ0=s4HMPbmUfZ0=','ckplayerDesKey'));
+			function textDes(str) {
+				var keyCode = 'ckplayerDesKey';
+				var newText = encodeURI(desEncrypt(str, keyCode));
+				newText=(keyCode == 'ckplayerDesKey' ? 'CK:' : 'CE:') + newText;
+				return newText;
+			}
+			function desEncrypt(word, keyCode) {
+				var key = CryptoJS.enc.Utf8.parse(keyCode);
+				var iv = CryptoJS.enc.Utf8.parse(keyCode);
+				var srcs = CryptoJS.enc.Utf8.parse(word);
+				var encrypted = CryptoJS.DES.encrypt(srcs, key, {
+					iv: iv,
+					mode: CryptoJS.mode.ECB
+				});
+				return encrypted.toString();
+			}
+			function desDecrypt(word, keyCode) {
+				var key = CryptoJS.enc.Utf8.parse(keyCode);
+				var iv = CryptoJS.enc.Utf8.parse(keyCode);
+				var decrypt = CryptoJS.DES.decrypt(word, key, {
+					iv: iv,
+					mode: CryptoJS.mode.ECB
+				});
+				return CryptoJS.enc.Utf8.stringify(decrypt).toString();
+			}
+		</script>
+	</body>
+</html>

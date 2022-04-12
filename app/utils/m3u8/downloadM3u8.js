@@ -7,6 +7,7 @@ let urlParse = require('url');
 let crypto = require('crypto');
 const { resolve } = require('path');
 let undiciRequest = require('m3u8utils/app/utils/m3u8/undiciRequest');
+const { isBuffer } = require('util');
 let cryptoKey = {};
 //http://www.flashme.cn/index.php/web/50.html
 function getiv(segmentNumber) {
@@ -39,17 +40,31 @@ async function downloadTs(TsInfo, pathTarget, process, segmentsOrder, parseM3u8R
                     // }).then(data=>{new Uint8Array(data)})
                     // console.log(TsInfo.key.uri);
                     let keyDataGet = await undiciRequest(TsInfo.key.uri);
+                    // console.log(keyDataGet.data);
                     if(keyDataGet && keyDataGet.data){
                         keyDataGet = keyDataGet.data.toString();
                     }
                     //console.log(keyDataGet);
-                    cryptoKey[TsInfo.key.uri] = new Uint8Array(Buffer.from(keyDataGet.body.replace(/\s+/, '')));
+                    //console.log(Buffer.from(keyDataGet.replace(/\s+/, ''),'base64'));
+                    cryptoKey[TsInfo.key.uri] = new Uint8Array(Buffer.from(keyDataGet.replace(/\s+/, '')));
                     //console.log(Buffer.from(cryptoKey[TsInfo.key.uri],'utf-8'));
                 }
                 let res = await undiciRequest(TsInfo.uri);
                 // https://github.com/video-dev/hls.js/blob/b34e8b82daa3c26efd009f1e5af085c34ea0a678/src/loader/fragment.ts#L220
                 //console.log(cryptoKey[TsInfo.key.uri]);
-                let cryptoIv = TsInfo.key.iv ? new Uint8Array(Buffer.from(TsInfo.key.iv)) : getiv(segmentsOrder - 1);
+                // console.log(TsInfo.key);
+                // console.log(TsInfo.key.iv.buffer);
+                let cryptoIv = '';
+                if(TsInfo.key.iv){
+                    if(TsInfo.key.iv.buffer){
+                        // console.log(Buffer.from(TsInfo.key.iv.buffer));
+                        cryptoIv = new Uint8Array(TsInfo.key.iv.buffer);
+                    }else{
+                        cryptoIv = new Uint8Array(Buffer.from(TsInfo.key.iv));
+                    }
+                }else{
+                    cryptoIv = getiv(segmentsOrder - 1);
+                }
                 let processRst = '';
                 if (res && res.data && res.data.length>0){
                     processRst = process(res.data, TsInfo, pathTarget, segmentsOrder, parseM3u8RstSegmentsOrg, TsInfo.key.method, cryptoKey[TsInfo.key.uri], cryptoIv);
@@ -130,7 +145,7 @@ async function downloadM3u8(url, pathTarget, progressOrg) {
             }
         })
     }
-    let downloadTsStep = 20;//每X个Ts文件一组下载
+    let downloadTsStep = 20;//每X个Ts文件一组下载,调试的时候改为1
     for(let i=0;i<Math.ceil(parseM3u8Rst.segments.length/downloadTsStep);i++){
         let PromiseArr = [];
         for(let j=0;j<downloadTsStep;j++){
