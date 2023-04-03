@@ -65,7 +65,6 @@ async function parseM3u8(url) {
                     val.key.uri = urlParse.resolve(val.uri, val.key.uri);
                 }
             }
-            val.uri = val.uri.split('?')[0];
         });
         return rst;
     } catch (e) {
