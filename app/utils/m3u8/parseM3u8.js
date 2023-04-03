@@ -4,14 +4,25 @@ let urlParse = require('url');
 let path = require('path');
 let fs = require('fs-extra');
 let URL = require('url');
+let undiciRequest = require('./undiciRequest.js');
 async function parseM3u8(url) {
     try {
         let data = '';
         if (url.indexOf('http') !== 0) {
             data = fs.readFileSync(url, 'utf-8');
         } else {
-            let dataHtpp = await got(url, { timeout: 10 * 1000 });
-            data = dataHtpp.body;
+
+            try{
+                let res = await undiciRequest(url);
+                if(res){
+                    url = res.url;
+                    data = res.data.toString();
+                }else{
+                    return false;
+                }
+            }catch(e){
+                return false;
+            }
         }
         let parser = new m3u8Parser.Parser();
         parser.push(data);
@@ -33,7 +44,14 @@ async function parseM3u8(url) {
             rst.oldM3u8Data = rst.oldM3u8Data.replace(/,\s+(.*.ts)/igm, function (val, val1) { return val.indexOf('http') !== -1 ? val : (',\n' + URL.resolve(url, val1)); });
         }
         rst.newM3u8Data = rst.oldM3u8Data.replace(/,\s+.*.ts/igm, function (val) { return val.indexOf('http') !== -1 ? (',\n' + path.parse(val).base) : val; });
-        rst.newM3u8Data = rst.newM3u8Data.replace(/,\s+.*/igm, function (val) { let rst = val; if (val.indexOf('/') !== -1) { rst = ',\n' + val.substr(val.lastIndexOf('/')) }; return rst; });
+        rst.newM3u8Data = rst.newM3u8Data.replace(/,\s+.*/igm, function (val) { 
+            let rst = val; 
+            if (val.indexOf('/') !== -1) {
+                rst = ',\n' + val.substr(val.lastIndexOf('/'))
+            }; 
+            rst = rst.replace(/\?(.*)/igm,"");
+            return rst; 
+        });
         rst.newM3u8Data = rst.newM3u8Data.replace(/#EXT-X-KEY.*\s+#/igm, '#');
         rst.segments = parser.manifest.segments;
         rst.segments.forEach((val, key) => {
@@ -41,8 +59,13 @@ async function parseM3u8(url) {
                 val.uri = urlParse.resolve(url, val.uri);
             }
             if (val.key && val.key.uri && val.key.uri.indexOf('http') !== 0) {
-                val.key.uri = urlParse.resolve(url, val.key.uri);
+                if(url.indexOf('http')===0){
+                    val.key.uri = urlParse.resolve(url, val.key.uri);
+                }else{
+                    val.key.uri = urlParse.resolve(val.uri, val.key.uri);
+                }
             }
+            val.uri = val.uri.split('?')[0];
         });
         return rst;
     } catch (e) {
