@@ -44,7 +44,14 @@ async function parseM3u8(url) {
             rst.oldM3u8Data = rst.oldM3u8Data.replace(/,\s+(.*.ts)/igm, function (val, val1) { return val.indexOf('http') !== -1 ? val : (',\n' + URL.resolve(url, val1)); });
         }
         rst.newM3u8Data = rst.oldM3u8Data.replace(/,\s+.*.ts/igm, function (val) { return val.indexOf('http') !== -1 ? (',\n' + path.parse(val).base) : val; });
-        rst.newM3u8Data = rst.newM3u8Data.replace(/,\s+.*/igm, function (val) { let rst = val; if (val.indexOf('/') !== -1) { rst = ',\n' + val.substr(val.lastIndexOf('/')) }; return rst; });
+        rst.newM3u8Data = rst.newM3u8Data.replace(/,\s+.*/igm, function (val) { 
+            let rst = val; 
+            if (val.indexOf('/') !== -1) {
+                rst = ',\n' + val.substr(val.lastIndexOf('/'))
+            }; 
+            rst = rst.replace(/\?(.*)/igm,"");
+            return rst; 
+        });
         rst.newM3u8Data = rst.newM3u8Data.replace(/#EXT-X-KEY.*\s+#/igm, '#');
         rst.segments = parser.manifest.segments;
         rst.segments.forEach((val, key) => {
