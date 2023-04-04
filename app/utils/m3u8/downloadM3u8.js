@@ -150,18 +150,26 @@ async function downloadM3u8(url, pathTarget, progressOrg) {
     fs.writeFileSync(pathTarget + '/input.txt', inputTxt);
     fs.writeFileSync(pathTarget + '/index_new.m3u8', parseM3u8Rst.newM3u8Data);
     fs.writeFileSync(pathTarget + '/index.m3u8', parseM3u8Rst.oldM3u8Data);
-    let parseM3u8RstSegmentsOrg = JSON.parse(JSON.stringify(parseM3u8Rst.segments));
+    // let parseM3u8RstSegmentsOrg = JSON.parse(JSON.stringify(parseM3u8Rst.segments));
     let segmentsPath = fs.readdirSync(pathTarget, { withFileTypes:true });
     //先将已经下载过的去掉
-    for (let j = parseM3u8Rst.segments.length-1; j>-1; j--){
-        segmentsPath.forEach((val,key)=>{
-            // console.log(j,parseM3u8Rst.segments[j]);
-            if (parseM3u8Rst.segments[j] && parseM3u8Rst.segments[j].uri.indexOf(val.name) !== -1){
-                let TsInfo = parseM3u8Rst.segments.splice(j, 1)[0];
-                progress(true, TsInfo, pathTarget, j, parseM3u8RstSegmentsOrg);
-            }
-        })
-    }
+    let segmentsPathObj = {};
+    segmentsPath.forEach((val,key)=>{
+        segmentsPathObj[val.name] = key+1;
+    });
+    // for (let j = parseM3u8Rst.segments.length-1; j>-1; j--){
+    //     segmentsPath.forEach((val,key)=>{
+    //         // console.log(j,parseM3u8Rst.segments[j]);
+    //         if(parseM3u8Rst.segments[j]){
+    //             if (parseM3u8Rst.segments[j].uri.substr(parseM3u8Rst.segments[j].uri.lastIndexOf('/')+1).split('?')[0]===val.name) {
+    //                 let TsInfo = parseM3u8Rst.segments.splice(j, 1)[0];
+    //                 console.log('162parseM3u8RstSegmentsOrg',parseM3u8RstSegmentsOrg.length);
+    //                 progress(true, TsInfo, pathTarget, j, parseM3u8RstSegmentsOrg);
+    //             }
+    //         }
+    //     })
+    // }
+    //run task 里过滤已经下载过的ts
     function runTask(taskArr,processAsyncFun,maxRun){
         return new Promise((resolve,reject)=>{
             if (taskArr.length===0) {
@@ -178,6 +186,7 @@ async function downloadM3u8(url, pathTarget, progressOrg) {
                     try{
                         await processAsyncFun(taskCurr,taskArrOrg.length-taskArr.length-1,taskArrOrg);
                     } catch(e) { 
+                        reject(e);
                         //console.log(e)   
                     }
                     if(taskArr.length===0){
@@ -189,7 +198,7 @@ async function downloadM3u8(url, pathTarget, progressOrg) {
                         try{
                             await runTaskEach();
                         }catch(e){
-    
+                            reject(e);
                         }
                     }
                 }
@@ -203,10 +212,14 @@ async function downloadM3u8(url, pathTarget, progressOrg) {
     //console.log(parseM3u8Rst.segments);
     runTask(parseM3u8Rst.segments,async function(taskCurr,index,taskAll){
         //console.log('index,taskAll.length',index,taskAll.length);
-        try{
-            await downloadTs(taskCurr, pathTarget, progress, index, taskAll);
-        }catch(e){
-            //console.log(e);
+        if(segmentsPathObj[taskCurr.uri.substr(taskCurr.uri.lastIndexOf('/')+1).split('?')[0]]){
+            progress(true, taskCurr, pathTarget, index, taskAll);
+        }else{
+            try{
+                await downloadTs(taskCurr, pathTarget, progress, index, taskAll);
+            }catch(e){
+                //console.log(e);
+            }
         }
         return true;
     },20);
