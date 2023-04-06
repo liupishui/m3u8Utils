@@ -170,47 +170,40 @@ async function downloadM3u8(url, pathTarget, progressOrg) {
     //     })
     // }
     //run task 里过滤已经下载过的ts
-    function runTask(taskArr,processAsyncFun,maxRun){
-        return new Promise((resolve,reject)=>{
-            if (taskArr.length===0) {
-                resolve('over');
-                return;
+    async function runTask(taskArr, processAsyncFun, maxRun) {
+        const taskArrOrg = [...taskArr];
+        const runningTasks = new Set();
+        const completeTasks = new Set();
+        const progress = new Array(taskArr.length).fill(false);
+      
+        async function run() {
+          while (runningTasks.size < maxRun && taskArr.length > 0) {
+            const taskIndex = taskArr.length - 1;
+            const task = taskArr.pop();
+            runningTasks.add(task);
+            try {
+              await processAsyncFun(task, taskIndex, taskArrOrg);
+              progress[taskIndex] = true;
+            } catch (e) {
+              console.error(e);
             }
-            let taskArrOrg = JSON.parse(JSON.stringify(taskArr));
-            taskArr = taskArr.reverse();
-            maxRun = Math.min.apply('',[maxRun,taskArr.length]);
-            let count=0;
-            let runTaskEach = async function(){
-                if(taskArr.length > 0){
-                    taskCurr = taskArr.splice(-1)[0];
-                    try{
-                        await processAsyncFun(taskCurr,taskArrOrg.length-taskArr.length-1,taskArrOrg);
-                    } catch(e) { 
-                        reject(e);
-                        //console.log(e)   
-                    }
-                    if(taskArr.length===0){
-                        count++;
-                        if (count===maxRun) {
-                            resolve('over')
-                        }
-                    }else{
-                        try{
-                            await runTaskEach();
-                        }catch(e){
-                            reject(e);
-                        }
-                    }
-                }
-            }
-            for(let i=0;i<maxRun;i++){
-                runTaskEach(taskArr);
-            }
-        
-        })
-    }
+            completeTasks.add(task);
+            runningTasks.delete(task);
+          }
+      
+          if (completeTasks.size === taskArrOrg.length) {
+            return Promise.resolve([taskArrOrg,progress]);
+          }
+      
+          await new Promise((resolve) => setTimeout(resolve, 100));
+          await run();
+        }
+      
+        let rst = await run();
+        return rst;
+      }
     //console.log(parseM3u8Rst.segments);
-    runTask(parseM3u8Rst.segments,async function(taskCurr,index,taskAll){
+    let runrst = await runTask(parseM3u8Rst.segments,async function(taskCurr,index,taskAll){
         //console.log('index,taskAll.length',index,taskAll.length);
         if(segmentsPathObj[taskCurr.uri.substr(taskCurr.uri.lastIndexOf('/')+1).split('?')[0]]){
             progress(true, taskCurr, pathTarget, index, taskAll);
@@ -223,6 +216,7 @@ async function downloadM3u8(url, pathTarget, progressOrg) {
         }
         return true;
     },20);
+    return runrst;
     // let downloadTsStep = 20;//每X个Ts文件一组下载,调试的时候改为1
     // for(let i=0;i<Math.ceil(parseM3u8Rst.segments.length/downloadTsStep);i++){
     //     let PromiseArr = [];
