@@ -19,16 +19,17 @@ function getiv(segmentNumber) {
 
     return uint8View;
 }
-async function downloadTs(TsInfo, pathTarget, process, segmentsOrder, parseM3u8RstSegmentsOrg) {
+async function downloadTs(TsInfo, pathTarget, processFun, segmentsOrder, parseM3u8RstSegmentsOrg,TsDownloadedProgress) {
     var pathTargetFull = pathTarget + TsInfo.uri.substr(TsInfo.uri.lastIndexOf('/')).split('?')[0];
     if (fs.existsSync(pathTargetFull)) {
         if(fs.readFileSync(pathTargetFull).length===0){
             fs.unlinkSync(pathTargetFull);
-            process({error:{message:'数据为空',code:'CONTENTEMPTY'}}, TsInfo, pathTarget, segmentsOrder, parseM3u8RstSegmentsOrg);
+            processFun({error:{message:'数据为空',code:'CONTENTEMPTY'}}, TsInfo, pathTarget, segmentsOrder, parseM3u8RstSegmentsOrg);
         }else{
-            process(fs.readFileSync(pathTargetFull), TsInfo, pathTarget, segmentsOrder, parseM3u8RstSegmentsOrg);
+            processFun(fs.readFileSync(pathTargetFull), TsInfo, pathTarget, segmentsOrder, parseM3u8RstSegmentsOrg);
+            TsDownloadedProgress(fs.readFileSync(pathTargetFull), TsInfo, pathTarget, segmentsOrder, parseM3u8RstSegmentsOrg);
+            return true;
         }
-        return true;
     }
     let processFunctionIsRun = false;
     if (TsInfo.key) {
@@ -71,7 +72,7 @@ async function downloadTs(TsInfo, pathTarget, process, segmentsOrder, parseM3u8R
                    // downloadCount++;
                    // console.log('downloadCount',downloadCount)
                    processFunctionIsRun = true;
-                    processRst = process(res.data, TsInfo, pathTarget, segmentsOrder, parseM3u8RstSegmentsOrg, TsInfo.key.method, cryptoKey[TsInfo.key.uri], cryptoIv);
+                    processRst = processFun(res.data, TsInfo, pathTarget, segmentsOrder, parseM3u8RstSegmentsOrg, TsInfo.key.method, cryptoKey[TsInfo.key.uri], cryptoIv);
                     if (processRst.cryptoIv) {
                         cryptoIv = processRst.cryptoIv;
                     };
@@ -83,26 +84,32 @@ async function downloadTs(TsInfo, pathTarget, process, segmentsOrder, parseM3u8R
                     }
                     if (processRst.isDecrypto){//如果已经解密直接写入
                         fs.writeFileSync(pathTargetFull, processRst.data);
+                        TsDownloadedProgress(decRst, TsInfo, pathTarget, segmentsOrder, parseM3u8RstSegmentsOrg, TsInfo.key.method, cryptoKey[TsInfo.key.uri], cryptoIv);
                     }else{
                         let decipher = crypto.createDecipheriv((TsInfo.key.method + '-cbc').toLocaleLowerCase(), cryptoKey[TsInfo.key.uri], cryptoIv);
                         decRst = Buffer.concat([decipher.update(Buffer.isBuffer(processRst) ? processRst : processRst.data), decipher.final()]);
                         if(decRst.length>0){
                             fs.writeFileSync(pathTargetFull, decRst);
+                            TsDownloadedProgress(decRst, TsInfo, pathTarget, segmentsOrder, parseM3u8RstSegmentsOrg, TsInfo.key.method, cryptoKey[TsInfo.key.uri], cryptoIv);
+                        }else{
+                            TsDownloadedProgress({ error: { message: '数据为空', code: 'CONTENTEMPTY' } }, TsInfo, pathTarget, segmentsOrder, parseM3u8RstSegmentsOrg, TsInfo.key.method, cryptoKey[TsInfo.key.uri], cryptoIv);
                         }
                     }
-    
+
                 }else{
                     //downloadCount1++;
                     //console.log('downloadCount1',downloadCount1)
                     processFunctionIsRun = true;
-                    processRst = process({ error: { message: '数据为空', code: 'CONTENTEMPTY' } }, TsInfo, pathTarget, segmentsOrder, parseM3u8RstSegmentsOrg, TsInfo.key.method, cryptoKey[TsInfo.key.uri], cryptoIv);
+                    processRst = processFun({ error: { message: '数据为空', code: 'CONTENTEMPTY' } }, TsInfo, pathTarget, segmentsOrder, parseM3u8RstSegmentsOrg, TsInfo.key.method, cryptoKey[TsInfo.key.uri], cryptoIv);
+                    TsDownloadedProgress({ error: { message: '数据为空', code: 'CONTENTEMPTY' } }, TsInfo, pathTarget, segmentsOrder, parseM3u8RstSegmentsOrg, TsInfo.key.method, cryptoKey[TsInfo.key.uri], cryptoIv);
                 }
                 return true;
             }catch(e){
                 //downloadCount2++;
                 //console.log('downloadCount2',downloadCount2)
                 if(processFunctionIsRun===false){
-                    process({error:e}, TsInfo, pathTarget, segmentsOrder, parseM3u8RstSegmentsOrg, TsInfo.key.method, cryptoKey[TsInfo.key.uri], '');
+                    processFun({error:e}, TsInfo, pathTarget, segmentsOrder, parseM3u8RstSegmentsOrg, TsInfo.key.method, cryptoKey[TsInfo.key.uri], '');
+                    TsDownloadedProgress({error:e}, TsInfo, pathTarget, segmentsOrder, parseM3u8RstSegmentsOrg, TsInfo.key.method, cryptoKey[TsInfo.key.uri], '');
                 }else{
                     //console.log(e);
                 }
@@ -114,14 +121,21 @@ async function downloadTs(TsInfo, pathTarget, process, segmentsOrder, parseM3u8R
             let res = await undiciRequest(TsInfo.uri);
             if(res && res.data && res.data.length>0){
                 processFunctionIsRun = true;
-                fs.writeFileSync(pathTargetFull, process(res.data, TsInfo, pathTarget, segmentsOrder, parseM3u8RstSegmentsOrg));
+                if(segmentsOrder==0){
+                    console.log(2);
+                }
+                let data = processFun(res.data, TsInfo, pathTarget, segmentsOrder, parseM3u8RstSegmentsOrg);
+                fs.writeFileSync(pathTargetFull, data);
+                TsDownloadedProgress(res.data, TsInfo, pathTarget, segmentsOrder, parseM3u8RstSegmentsOrg);
             }else{
                 processFunctionIsRun = true;
-                process({ error: { message: '数据为空', code: 'CONTENTEMPTY' } }, TsInfo, pathTarget, segmentsOrder, parseM3u8RstSegmentsOrg)
+                processFun({ error: { message: '数据为空', code: 'CONTENTEMPTY' } }, TsInfo, pathTarget, segmentsOrder, parseM3u8RstSegmentsOrg);
+                TsDownloadedProgress({ error: { message: '数据为空', code: 'CONTENTEMPTY' } }, TsInfo, pathTarget, segmentsOrder, parseM3u8RstSegmentsOrg);
             }
         }catch(e){
             if(processFunctionIsRun===false){
-                process({error:e}, TsInfo, pathTarget, segmentsOrder, parseM3u8RstSegmentsOrg)
+                processFun({error:e}, TsInfo, pathTarget, segmentsOrder, parseM3u8RstSegmentsOrg)
+                TsDownloadedProgress({error:e}, TsInfo, pathTarget, segmentsOrder, parseM3u8RstSegmentsOrg);
             }
             return Promise.reject(e);
         }
@@ -130,11 +144,15 @@ async function downloadTs(TsInfo, pathTarget, process, segmentsOrder, parseM3u8R
 }
 
 
-async function downloadM3u8(url, pathTarget, progressOrg) {
+async function downloadM3u8(url, pathTarget, progressOrg,TsDownloadedProgressOrg) {
     // pathTarget存储的目的地址
     let progress = function (bufferData) { return bufferData };
+    let TsDownloadedProgress = function(){};
     if (progressOrg) {
         progress = progressOrg;
+    }
+    if(TsDownloadedProgressOrg){
+        TsDownloadedProgress = TsDownloadedProgressOrg;
     }
     if (!fs.existsSync(pathTarget)) {
         fs.mkdirSync(pathTarget, { recursive: true });
@@ -171,59 +189,55 @@ async function downloadM3u8(url, pathTarget, progressOrg) {
     //     })
     // }
     //run task 里过滤已经下载过的ts
-    function runTask(taskArr,processAsyncFun,maxRun){
-        return new Promise((resolve,reject)=>{
-            if (taskArr.length===0) {
-                resolve('over');
-                return;
+    async function runTask(taskArr, processAsyncFun, maxRun) {
+        const taskArrOrg = [...taskArr];
+        const runningTasks = new Set();
+        const completeTasks = new Set();
+        const progress = new Array(taskArr.length).fill(false);
+      
+        async function run() {
+          while (runningTasks.size < maxRun && taskArr.length > 0) {
+            const taskIndex = taskArr.length - 1;
+            const task = taskArr.pop();
+            runningTasks.add(task);
+            try {
+              await processAsyncFun(task, taskIndex, taskArrOrg);
+              progress[taskIndex] = true;
+            } catch (e) {
+              console.error(e);
             }
-            let taskArrOrg = JSON.parse(JSON.stringify(taskArr));
-            taskArr = taskArr.reverse();
-            maxRun = Math.min.apply('',[maxRun,taskArr.length]);
-            let count=0;
-            let runTaskEach = async function(){
-                if(taskArr.length > 0){
-                    taskCurr = taskArr.splice(-1)[0];
-                    try{
-                        await processAsyncFun(taskCurr,taskArrOrg.length-taskArr.length-1,taskArrOrg);
-                    } catch(e) { 
-                        reject(e);
-                        //console.log(e)   
-                    }
-                    if(taskArr.length===0){
-                        count++;
-                        if (count===maxRun) {
-                            resolve('over')
-                        }
-                    }else{
-                        try{
-                            await runTaskEach();
-                        }catch(e){
-                            reject(e);
-                        }
-                    }
-                }
-            }
-            for(let i=0;i<maxRun;i++){
-                runTaskEach(taskArr);
-            }
-        
-        })
-    }
+            completeTasks.add(task);
+            runningTasks.delete(task);
+          }
+      
+          if (completeTasks.size === taskArrOrg.length) {
+            return Promise.resolve([taskArrOrg,progress]);
+          }
+      
+          await new Promise((resolve) => setTimeout(resolve, 100));
+          await run();
+        }
+      
+        let rst = await run();
+        return rst;
+      }
     //console.log(parseM3u8Rst.segments);
-    runTask(parseM3u8Rst.segments,async function(taskCurr,index,taskAll){
+    let runrst = await runTask(parseM3u8Rst.segments,async function(taskCurr,index,taskAll){
         //console.log('index,taskAll.length',index,taskAll.length);
         if(segmentsPathObj[taskCurr.uri.substr(taskCurr.uri.lastIndexOf('/')+1).split('?')[0]]){
+            //已经下载过的不重复下载
             progress(true, taskCurr, pathTarget, index, taskAll);
+            TsDownloadedProgress(true, taskCurr, pathTarget, index, taskAll);
         }else{
             try{
-                await downloadTs(taskCurr, pathTarget, progress, index, taskAll);
+                await downloadTs(taskCurr, pathTarget, progress, index, taskAll,TsDownloadedProgress);
             }catch(e){
                 //console.log(e);
             }
         }
         return true;
     },20);
+    return runrst;
     // let downloadTsStep = 20;//每X个Ts文件一组下载,调试的时候改为1
     // for(let i=0;i<Math.ceil(parseM3u8Rst.segments.length/downloadTsStep);i++){
     //     let PromiseArr = [];
