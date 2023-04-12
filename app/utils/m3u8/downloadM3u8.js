@@ -1,5 +1,5 @@
 //下载输入m3u8网络地址，和存储位置；下载对应.m3u8文件和.ts文件到指定文件夹内，同时在指定文件夹内生成input.txt文件用于使用ffmpeg.exe工具.ts文件合并生成.mp4文件
-let parseM3u8 = require('m3u8utils/app/utils/m3u8/parseM3u8');
+let parseM3u8 = require('./parseM3u8');
 let got = require('got');
 let fs = require('fs');
 let path = require('path');
@@ -158,7 +158,6 @@ async function downloadM3u8(url, pathTarget, progressOrg,TsDownloadedProgressOrg
         fs.mkdirSync(pathTarget, { recursive: true });
     }
     let parseM3u8Rst = await parseM3u8(url); //获取所有ts片段
-
     let inputTxt = 'ffconcat version 1.0\n';//ffmpeg生成mp4所用文件
     if(typeof(parseM3u8Rst.segments)=='undefined'){
         return;
@@ -198,7 +197,7 @@ async function downloadM3u8(url, pathTarget, progressOrg,TsDownloadedProgressOrg
         async function run() {
           while (runningTasks.size < maxRun && taskArr.length > 0) {
             const taskIndex = taskArr.length - 1;
-            const task = taskArr.pop();
+            const task = taskArr.shift();
             runningTasks.add(task);
             try {
               await processAsyncFun(task, taskIndex, taskArrOrg);
