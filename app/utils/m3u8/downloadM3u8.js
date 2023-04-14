@@ -196,7 +196,7 @@ async function downloadM3u8(url, pathTarget, progressOrg,TsDownloadedProgressOrg
       
         async function run() {
           while (runningTasks.size < maxRun && taskArr.length > 0) {
-            const taskIndex = taskArr.length - 1;
+            const taskIndex = taskArrOrg.length - taskArr.length;
             const task = taskArr.shift();
             runningTasks.add(task);
             try {
