@@ -9,6 +9,37 @@ const { resolve } = require('path');
 let undiciRequest = require('./undiciRequest');
 const { isBuffer } = require('util');
 let cryptoKey = {};
+const url = require('url');
+function isUtf8(buffer) {
+    let i = 0;
+    while (i < buffer.length) {
+      if ((buffer[i] & 0b10000000) === 0b00000000) {
+        i++;
+      } else if ((buffer[i] & 0b11100000) === 0b11000000) {
+        if ((buffer[i + 1] & 0b11000000) !== 0b10000000) {
+          return false;
+        }
+        i += 2;
+      } else if ((buffer[i] & 0b11110000) === 0b11100000) {
+        if ((buffer[i + 1] & 0b11000000) !== 0b10000000 ||
+            (buffer[i + 2] & 0b11000000) !== 0b10000000) {
+          return false;
+        }
+        i += 3;
+      } else if ((buffer[i] & 0b11111000) === 0b11110000) {
+        if ((buffer[i + 1] & 0b11000000) !== 0b10000000 ||
+            (buffer[i + 2] & 0b11000000) !== 0b10000000 ||
+            (buffer[i + 3] & 0b11000000) !== 0b10000000) {
+          return false;
+        }
+        i += 4;
+      } else {
+        return false;
+      }
+    }
+    return true;
+  }
+  
 //http://www.flashme.cn/index.php/web/50.html
 function getiv(segmentNumber) {
     const uint8View = new Uint8Array(16);
@@ -19,7 +50,7 @@ function getiv(segmentNumber) {
 
     return uint8View;
 }
-async function downloadTs(TsInfo, pathTarget, processFun, segmentsOrder, parseM3u8RstSegmentsOrg,TsDownloadedProgress) {
+async function downloadTs(TsInfo, pathTarget, processFun, segmentsOrder, parseM3u8RstSegmentsOrg,TsDownloadedProgress,headerOptions) {
     var pathTargetFull = pathTarget + TsInfo.uri.substr(TsInfo.uri.lastIndexOf('/')).split('?')[0];
     if (fs.existsSync(pathTargetFull)) {
         if(fs.readFileSync(pathTargetFull).length===0){
@@ -41,17 +72,36 @@ async function downloadTs(TsInfo, pathTarget, processFun, segmentsOrder, parseM3
                     //     return res.arrayBuffer()
                     // }).then(data=>{new Uint8Array(data)})
                     // console.log(TsInfo.key.uri);
-                    let keyDataGet = await undiciRequest(TsInfo.key.uri);
+                    let urlKeyObject = url.parse(TsInfo.key.uri);
+                    let defaultKeyHeaderOption = {
+                        "user-agent":"Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.5359.95 Safari/537.36",
+                        "Referer":TsInfo.key.uri,
+                        "Origin":TsInfo.key.uri,
+                        "Host":urlKeyObject.host,
+                    }
+                    if(headerOptions && headerOptions.keyHeaders){
+                        Object.assign(defaultKeyHeaderOption,headerOptions.keyHeaders);
+                    }
+                    let keyDataGet = await undiciRequest(TsInfo.key.uri,{ headers: defaultKeyHeaderOption});
                     // console.log(keyDataGet.data);
                     if(keyDataGet && keyDataGet.data){
-                        keyDataGet = keyDataGet.data.toString();
+                        if(isUtf8(keyDataGet.data)){
+                            keyDataGet = keyDataGet.data.toString();
+                            cryptoKey[TsInfo.key.uri] = new Uint8Array(Buffer.from(keyDataGet.replace(/\s+/, '')));
+                        }else{
+                            cryptoKey[TsInfo.key.uri] = new Uint8Array(Buffer.from(keyDataGet.data));
+                        }
                     }
                     //console.log(keyDataGet);
                     //console.log(Buffer.from(keyDataGet.replace(/\s+/, ''),'base64'));
-                    cryptoKey[TsInfo.key.uri] = new Uint8Array(Buffer.from(keyDataGet.replace(/\s+/, '')));
                     //console.log(Buffer.from(cryptoKey[TsInfo.key.uri],'utf-8'));
                 }
-                let res = await undiciRequest(TsInfo.uri);
+                let defaultTsHeaderOption = {
+                }
+                if(headerOptions && headerOptions.TsHeaders){
+                    Object.assign(defaultTsHeaderOption,headerOptions.TsHeaders);
+                }
+                let res = await undiciRequest(TsInfo.uri,{ headers: defaultTsHeaderOption});
                 // https://github.com/video-dev/hls.js/blob/b34e8b82daa3c26efd009f1e5af085c34ea0a678/src/loader/fragment.ts#L220
                 //console.log(cryptoKey[TsInfo.key.uri]);
                 // console.log(TsInfo.key);
@@ -144,7 +194,7 @@ async function downloadTs(TsInfo, pathTarget, processFun, segmentsOrder, parseM3
 }
 
 
-async function downloadM3u8(url, pathTarget, progressOrg,TsDownloadedProgressOrg) {
+async function downloadM3u8(url, pathTarget, progressOrg,TsDownloadedProgressOrg,headerOptions) {
     // pathTarget存储的目的地址
     let progress = function (bufferData) { return bufferData };
     let TsDownloadedProgress = function(){};
@@ -199,14 +249,16 @@ async function downloadM3u8(url, pathTarget, progressOrg,TsDownloadedProgressOrg
             const taskIndex = taskArrOrg.length - taskArr.length;
             const task = taskArr.shift();
             runningTasks.add(task);
-            try {
-              await processAsyncFun(task, taskIndex, taskArrOrg);
-              progress[taskIndex] = true;
-            } catch (e) {
-              console.error(e);
-            }
-            completeTasks.add(task);
-            runningTasks.delete(task);
+            [1].forEach(async()=>{
+                try {
+                    await processAsyncFun(task, taskIndex, taskArrOrg);
+                    progress[taskIndex] = true;
+                  } catch (e) {
+                    console.error(e);
+                  }
+                  completeTasks.add(task);
+                  runningTasks.delete(task);
+            })
           }
       
           if (completeTasks.size === taskArrOrg.length) {
@@ -229,13 +281,13 @@ async function downloadM3u8(url, pathTarget, progressOrg,TsDownloadedProgressOrg
             TsDownloadedProgress(true, taskCurr, pathTarget, index, taskAll);
         }else{
             try{
-                await downloadTs(taskCurr, pathTarget, progress, index, taskAll,TsDownloadedProgress);
+                await downloadTs(taskCurr, pathTarget, progress, index, taskAll,TsDownloadedProgress,headerOptions);
             }catch(e){
                 //console.log(e);
             }
         }
         return true;
-    },20);
+    },100);
     return runrst;
     // let downloadTsStep = 20;//每X个Ts文件一组下载,调试的时候改为1
     // for(let i=0;i<Math.ceil(parseM3u8Rst.segments.length/downloadTsStep);i++){

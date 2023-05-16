@@ -56,7 +56,7 @@ async function parseM3u8(url) {
         rst.segments = parser.manifest.segments;
         rst.segments.forEach((val, key) => {
             if (val.uri.indexOf('http') !== 0) {
-                val.uri = urlParse.resolve(url, val.uri);
+                val.uri = path.join(path.parse(url).dir,val.uri);
             }
             if (val.key && val.key.uri && val.key.uri.indexOf('http') !== 0) {
                 if(url.indexOf('http')===0){
